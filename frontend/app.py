@@ -1,0 +1,93 @@
+import streamlit as st
+import requests
+
+st.title("AI Outbound Growth Engine 🚀")
+
+st.header("Send Personalized Cold Email")
+
+name = st.text_input("Name")
+company = st.text_input("Company")
+role = st.text_input("Role")
+email = st.text_input("Email")
+problem = st.text_area("Problem (optional)")
+
+if st.button("Generate & Send Email"):
+    data = {
+        "name": name,
+        "company": company,
+        "role": role,
+        "email": email,
+        "problem": problem,
+    }
+
+    res = requests.post("http://127.0.0.1:8000/send-email/", json=data)
+
+    if res.status_code == 200:
+        st.success("Email sent!")
+        response = res.json()
+
+    if "message" in response:
+        st.success("Email sent!")
+    
+        st.write("Subject:")
+        st.info(response.get("subject", "No subject"))
+    
+        st.text_area(
+            "Generated Email",
+            response["message"],
+            height=300
+        )
+    
+    elif "error" in response:
+        st.error(response["error"])
+    
+    else:
+        st.error("Unexpected response")
+
+
+        
+        
+# for history        
+        
+st.header("History")
+
+if st.button("Load History"):
+    res = requests.get("http://127.0.0.1:8000/leads/")
+    leads = res.json()
+
+    for lead in leads:
+        st.subheader(lead["name"])
+        st.write(f"Company: {lead['company']}")
+        st.write(f"Role: {lead['role']}")
+        st.write(f"Email: {lead['email']}")
+        st.text_area("Message", lead["message"], height=150)
+        
+
+
+
+#UI
+
+st.header("📂 Bulk Email Sender")
+
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+if uploaded_file is not None:
+    if st.button("Send Bulk Emails"):
+        files = {"file": uploaded_file.getvalue()}
+
+        with st.spinner("Sending emails..."):
+            res = requests.post(
+                "http://127.0.0.1:8000/bulk-send/",
+                files={"file": uploaded_file}
+            )
+
+        if res.status_code == 200:
+            results = res.json()["results"]
+
+            st.success("Bulk sending completed!")
+
+            for r in results:
+                if r["status"] == "sent":
+                    st.write(f"✅ {r['email']}")
+                else:
+                    st.write(f"❌ {r['email']} - {r.get('error')}")

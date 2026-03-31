@@ -1,0 +1,5 @@
+name,company,role,email,problem
+John,ABC.com,CTO,john@gmail.com,High data cost
+Priya,XYZ.com,Head of Data,priya@gmail.com,Slow dashboards
+Sharath,everything.com,Head of Everything,hsharathchandra@gmail.com,very fast
+Khaja,bizacuity.com,lead,sunny15593@gmail.com,Very slow queries in redshift
