@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS leads (
 conn.commit()
 
 
-def save_lead(name, company, role, email, message):
+def save_lead(name, company, role, email, message, subject):
     cursor.execute(
         "INSERT INTO leads (name, company, role, email, message, subject) VALUES (?, ?, ?, ?, ?, ?)",
         (name, company, role, email, message, subject),

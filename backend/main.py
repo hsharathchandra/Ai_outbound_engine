@@ -8,6 +8,7 @@ import io
 import time
 import random
 from backend.website_scraper import scrape_website
+from backend.utils import clean_subjects
 
 app = FastAPI()
 
@@ -34,7 +35,10 @@ def process_lead(lead: Lead):
         company_url = company  # works if you pass domain like "xyz.com"
         
         # 🔥 Step 2: Scrape website
-        company_context = scrape_website(company_url)
+        scraped = scrape_website(company_url)
+
+        company_context = scraped["summary"]
+        keywords = scraped["keywords"]
         
         # 🔥 Step 3: Generate email with context
         message = generate_email(
@@ -49,7 +53,7 @@ def process_lead(lead: Lead):
         subjects = generate_subjects(name, company, role)
 
         # 🔥 Pick one subject (simple A/B)
-        subject_list = subjects.split("\n")
+        subject_list = clean_subjects(subjects)
         subject_list = [s.strip() for s in subject_list if s.strip()]
 
         subject = subject_list[0] if subject_list else "Quick idea"
@@ -146,7 +150,7 @@ def bulk_send(file: UploadFile = File(...)):
             send_email(email, subject, message)
 
             # Save to DB
-            save_lead(name, company, role, email, message)
+            save_lead(name, company, role, email, message, subject)
 
             results.append({"email": email, "status": "sent"})
 
@@ -158,6 +162,7 @@ def bulk_send(file: UploadFile = File(...)):
             results.append({"email": email, "status": "failed", "error": str(e)})
 
     return {"results": results}
+    
     
     
     
