@@ -1,93 +1,135 @@
 import streamlit as st
 import requests
 
-st.title("AI Outbound Growth Engine 🚀")
+st.set_page_config(page_title="AI Outbound Engine", layout="wide")
 
-st.header("Send Personalized Cold Email")
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("🚀 AI Outbound Engine")
 
-name = st.text_input("Name")
-company = st.text_input("Company")
-role = st.text_input("Role")
-email = st.text_input("Email")
-problem = st.text_area("Problem (optional)")
+page = st.sidebar.radio(
+    "Navigation",
+    ["Dashboard", "Send Email", "Bulk Email", "History"]
+)
 
-if st.button("Generate & Send Email"):
-    data = {
-        "name": name,
-        "company": company,
-        "role": role,
-        "email": email,
-        "problem": problem,
-    }
+# ---------------- DASHBOARD ----------------
+if page == "Dashboard":
+    st.title("📊 Dashboard")
 
-    res = requests.post("http://127.0.0.1:8000/send-email/", json=data)
+    try:
+        res = requests.get("http://127.0.0.1:8000/stats/")
+        stats = res.json()
 
-    if res.status_code == 200:
-        st.success("Email sent!")
-        response = res.json()
+        col1, col2, col3 = st.columns(3)
 
-    if "message" in response:
-        st.success("Email sent!")
-    
-        st.write("Subject:")
-        st.info(response.get("subject", "No subject"))
-    
-        st.text_area(
-            "Generated Email",
-            response["message"],
-            height=300
-        )
-    
-    elif "error" in response:
-        st.error(response["error"])
-    
-    else:
-        st.error("Unexpected response")
+        with col1:
+            st.metric("Emails Sent", stats.get("total", 0))
 
+        with col2:
+            st.metric("Success Rate", f"{stats.get('success_rate', 0)}%")
 
-        
-        
-# for history        
-        
-st.header("History")
+        with col3:
+            st.metric("Replies", stats.get("replies", 0))
 
-if st.button("Load History"):
-    res = requests.get("http://127.0.0.1:8000/leads/")
-    leads = res.json()
+    except:
+        st.warning("⚠️ Backend not running or no data available")
 
-    for lead in leads:
-        st.subheader(lead["name"])
-        st.write(f"Company: {lead['company']}")
-        st.write(f"Role: {lead['role']}")
-        st.write(f"Email: {lead['email']}")
-        st.text_area("Message", lead["message"], height=150)
-        
+# ---------------- SEND EMAIL ----------------
+elif page == "Send Email":
+    st.title("📧 Send Personalized Email")
 
+    name = st.text_input("Name")
+    company = st.text_input("Company (use domain like tcs.com)")
+    role = st.text_input("Role")
+    email = st.text_input("Email")
+    problem = st.text_area("Problem")
 
+    if st.button("Generate & Send Email"):
+        data = {
+            "name": name,
+            "company": company,
+            "role": role,
+            "email": email,
+            "problem": problem,
+        }
 
-#UI
+        try:
+            res = requests.post("http://127.0.0.1:8000/send-email/", json=data)
+            response = res.json()
 
-st.header("📂 Bulk Email Sender")
+            if "message" in response:
+                st.success("✅ Email sent successfully!")
 
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+                st.subheader("Subject")
+                st.info(response.get("subject", ""))
 
-if uploaded_file is not None:
-    if st.button("Send Bulk Emails"):
-        files = {"file": uploaded_file.getvalue()}
+                st.subheader("Generated Email")
+                st.text_area("", response["message"], height=300)
 
-        with st.spinner("Sending emails..."):
-            res = requests.post(
-                "http://127.0.0.1:8000/bulk-send/",
-                files={"file": uploaded_file}
-            )
+            elif "error" in response:
+                st.error(response["error"])
 
-        if res.status_code == 200:
-            results = res.json()["results"]
+            else:
+                st.error("Unexpected response from server")
 
-            st.success("Bulk sending completed!")
+        except:
+            st.error("❌ Backend not reachable")
 
-            for r in results:
-                if r["status"] == "sent":
-                    st.write(f"✅ {r['email']}")
+# ---------------- BULK EMAIL ----------------
+elif page == "Bulk Email":
+    st.title("📂 Bulk Email Sender")
+
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+    if uploaded_file is not None:
+        if st.button("Send Bulk Emails"):
+            try:
+                with st.spinner("Sending emails..."):
+                    res = requests.post(
+                        "http://127.0.0.1:8000/bulk-send/",
+                        files={"file": uploaded_file}
+                    )
+
+                if res.status_code == 200:
+                    results = res.json().get("results", [])
+
+                    st.success("✅ Bulk sending completed!")
+
+                    for r in results:
+                        if r["status"] == "sent":
+                            st.write(f"✅ {r['email']}")
+                        else:
+                            st.write(f"❌ {r['email']} - {r.get('error')}")
+
                 else:
-                    st.write(f"❌ {r['email']} - {r.get('error')}")
+                    st.error("Bulk API failed")
+
+            except:
+                st.error("❌ Bulk send failed")
+
+# ---------------- HISTORY ----------------
+elif page == "History":
+    st.title("📜 Email History")
+
+    if st.button("Load History"):
+        try:
+            res = requests.get("http://127.0.0.1:8000/leads/")
+            leads = res.json()
+
+            if not leads:
+                st.info("No data available yet")
+
+            for lead in leads:
+                st.subheader(lead.get("name", "Unknown"))
+
+                st.write(f"**Company:** {lead.get('company', '')}")
+                st.write(f"**Role:** {lead.get('role', '')}")
+                st.write(f"**Email:** {lead.get('email', '')}")
+
+                st.text_area(
+                    "Message",
+                    lead.get("message", ""),
+                    height=150
+                )
+
+        except:
+            st.error("❌ Failed to load history")

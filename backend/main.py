@@ -9,6 +9,13 @@ import time
 import random
 from backend.website_scraper import scrape_website
 from backend.utils import clean_subjects
+import os
+import sqlite3
+   
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "leads.db")
+
+
 
 app = FastAPI()
 
@@ -62,7 +69,7 @@ def process_lead(lead: Lead):
         send_email(email, subject, message)
 
         # Save to DB
-        save_lead(name, company, role, email, message, subject)
+        save_lead(name, company, role, email, message, subject,status="sent")
 
         return {
             "status": "Email sent",
@@ -150,7 +157,7 @@ def bulk_send(file: UploadFile = File(...)):
             send_email(email, subject, message)
 
             # Save to DB
-            save_lead(name, company, role, email, message, subject)
+            save_lead(name, company, role, email, message, subject,status="sent")
 
             results.append({"email": email, "status": "sent"})
 
@@ -164,5 +171,25 @@ def bulk_send(file: UploadFile = File(...)):
     return {"results": results}
     
     
-    
-    
+
+
+@app.get("/stats/")
+def get_stats():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM leads")
+    total = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM leads WHERE status='sent'")
+    success = cursor.fetchone()[0]
+
+    conn.close()
+
+    success_rate = round((success / total) * 100, 2) if total else 0
+
+    return {
+        "total": total,
+        "success_rate": success_rate,
+        "replies": 0
+    }

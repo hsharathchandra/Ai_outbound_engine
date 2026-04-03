@@ -56,6 +56,15 @@ Keywords:
 
 Problem they have(optional, might be empty too, if not empty, make sure to include the problem and how we will solve that): {problem}
 
+Problem (CRITICAL - MUST USE THIS):
+{problem}
+
+INSTRUCTIONS:
+- You MUST explicitly mention the problem in the email
+- You MUST connect the problem to the company's scale or operations
+- You MUST suggest a clear improvement or solution
+- Do NOT ignore the problem under any circumstances
+
 BizAcuity:
 - BI & Analytics consulting
 - AWS, Azure, GCP
