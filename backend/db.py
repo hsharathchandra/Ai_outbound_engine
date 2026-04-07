@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS leads (
     role TEXT,
     email TEXT,
     message TEXT,
-    subject TEXT
+    subject TEXT,
+    status TEXT
 )
 """)
 
