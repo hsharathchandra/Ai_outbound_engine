@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-
+import pandas as pd
 # ----------------- CONFIG -----------------
 API_URL = "http://127.0.0.1:8000"
 
@@ -65,7 +65,10 @@ input, textarea {
 
 # ----------------- SIDEBAR -----------------
 st.sidebar.markdown("<h1 style='font-size:32px; font-weight:700; line-height:1.2;'>AI Outbound Engine</h1>", unsafe_allow_html=True)
-page = st.sidebar.radio("Navigation", ["Dashboard", "Send Email", "Bulk Send", "History"])
+page = st.sidebar.radio(
+    "Navigation",
+    ["Dashboard", "Send Email", "Bulk Send", "History", "Leads Engine (MVP)"]
+)
 
 # ----------------- DASHBOARD -----------------
 if page == "Dashboard":
@@ -165,3 +168,95 @@ elif page == "History":
 
     except:
         st.warning("⚠️ Unable to fetch leads")
+
+elif page == "Leads Engine (MVP)":
+    st.title("🚀 Leads Engine")
+
+    # -------- INPUT --------
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        industry = st.text_input("Industry")
+
+    with col2:
+        role = st.text_input("Role")
+
+    with col3:
+        region = st.text_input("Region")
+
+    problem = st.text_area("Problem Statement")
+
+    # -------- STATE --------
+    if "leads" not in st.session_state:
+        st.session_state.leads = []
+
+    if "emails" not in st.session_state:
+        st.session_state.emails = []
+
+    # -------- GENERATE LEADS --------
+    if st.button("👉 Generate Leads"):
+        try:
+            res = requests.post(f"{API_URL}/generate-leads/", json={
+                "industry": industry,
+                "role": role,
+                "region": region
+            })
+    
+            data = res.json()
+    
+            # Save leads
+            st.session_state.leads = data.get("leads", [])
+    
+            st.success(f"✅ {len(st.session_state.leads)} leads generated")
+
+        except Exception as e:
+            st.error(f"Error generating leads: {str(e)}")
+        
+        
+     # -------- SHOW LEADS --------
+    if "leads" in st.session_state and st.session_state.leads:
+        st.subheader("📋 Generated Leads")
+    
+    
+    
+        df = pd.DataFrame(st.session_state.leads)
+    
+        st.write(f"Total Leads: {len(df)}")
+        st.dataframe(df, use_container_width=True)
+    
+        # Debug view
+        st.subheader("🧪 Debug Data")
+        st.json(st.session_state.leads)
+    
+    # -------- GENERATE EMAILS --------
+    if st.session_state.leads and st.button("⚡ Generate Emails"):
+        res = requests.post(f"{API_URL}/generate-emails/", json={
+            "leads": st.session_state.leads,
+            "problem": problem
+        })
+
+        st.session_state.emails = res.json()["emails"]
+        st.success("Emails generated")
+
+    # -------- EDIT --------
+    if st.session_state.emails:
+        for i, e in enumerate(st.session_state.emails):
+            st.markdown("---")
+
+            e["subject"] = st.text_input("Subject", e["subject"], key=f"s{i}")
+            e["message"] = st.text_area("Message", e["message"], key=f"m{i}")
+
+    # -------- SAVE --------
+    if st.session_state.emails and st.button("💾 Save Drafts"):
+        requests.post(f"{API_URL}/save-drafts/", json={
+            "emails": st.session_state.emails
+        })
+        st.success("Drafts saved")
+
+    # -------- SEND --------
+    if st.session_state.emails and st.button("🚀 Send Emails"):
+        res = requests.post(f"{API_URL}/send-emails/", json={
+            "emails": st.session_state.emails
+        })
+
+        st.success(f"Sent {res.json()['sent']} emails")
