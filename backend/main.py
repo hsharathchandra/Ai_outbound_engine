@@ -1,13 +1,13 @@
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
-from backend.email_generator import generate_email, generate_subjects
-from backend.email_sender import send_email
+#from backend.email_generator import generate_email, generate_subjects
+#from backend.email_sender import send_email
 from backend.db import save_lead, get_leads
 import csv
 import io
 import time
 import random
-from backend.website_scraper import scrape_website
+#from backend.website_scraper import scrape_website
 from backend.utils import clean_subjects
 import os
 import sqlite3
@@ -51,7 +51,64 @@ def generate_lead_with_fallback(company, domain, input_role=None):
 
     roles_to_try.extend([r for r in ROLE_PRIORITY if r not in roles_to_try])
 
-    # -------- LAYER 1: SEARCH --------
+    # -------- LAYER 1: LINKEDIN (TOP PRIORITY) --------
+    #from backend.linkedin_scraper import search_linkedin_people
+    #from backend.email_predictor import generate_email_patterns, pick_best_email
+
+    for role in roles_to_try:
+        role_keyword = role.split()[0] if role else "CEO"
+        #from backend.website_scraper import scrape_website
+        from backend.utils import clean_company_from_domain
+       # from backend.linkedin_scraper import search_linkedin_people
+
+        # -------- LAYER 1: GET COMPANY NAME --------
+        scraped = scrape_website(domain)
+
+        search_company = scraped.get("company_name")
+
+        # -------- FALLBACK (THIS IS WHAT YOU ASKED) --------
+        if not search_company:
+            search_company = clean_company_from_domain(domain)
+
+        print("Using company name:", search_company)
+
+        # -------- ROLE SIMPLIFICATION --------
+        role_keyword = role.split()[0] if role else "CEO"
+
+        # -------- LINKEDIN SEARCH --------
+        from backend.website_scraper import scrape_leadership
+        from backend.email_predictor import generate_email_patterns, pick_best_email
+
+        # -------- LAYER 1: WEBSITE LEADERSHIP --------
+        names = scrape_leadership(domain)
+
+        print("Leadership names:", names)
+
+        if names:
+            name = names[0]
+
+            parts = name.lower().split()
+            first = parts[0]
+            last = parts[-1] if len(parts) > 1 else ""
+
+            from backend.email_predictor import generate_best_email
+
+            best_email = generate_best_email(name, domain)
+
+            if not best_email:
+                print("❌ No valid email found, skipping")
+                continue
+
+            return {
+                "name": name.title(),
+                "company": domain,
+                "role": "Leadership",
+                "email": best_email,
+                "source": "website_leadership",
+                "confidence": 0.8
+            }
+
+    # -------- LAYER 2: SEARCH EMAIL --------
     for role in roles_to_try:
         email = search_email_online(company, role)
 
@@ -65,53 +122,21 @@ def generate_lead_with_fallback(company, domain, input_role=None):
                 "confidence": 0.85
             }
 
-    # -------- LAYER 2: GENERIC --------
+    # -------- LAYER 3: GENERIC (LAST RESORT) --------
     generic_emails = [
         f"sales@{domain}",
         f"info@{domain}",
         f"contact@{domain}"
     ]
 
-    for email in generic_emails:
-        return {
-            "name": "Business Team",
-            "company": domain,
-            "role": "General Contact",
-            "email": email,
-            "source": "generic",
-            "confidence": 0.6
-        }
-
-    # -------- LAYER 3: PATTERN --------
-    for role in roles_to_try:
-        name = search_person_name(company, role)
-
-        if name:
-            parts = name.lower().split()
-            first = parts[0]
-            last = parts[-1] if len(parts) > 1 else ""
-
-            email = f"{first}.{last}@{domain}" if last else f"{first}@{domain}"
-
-            return {
-                "name": name.title(),
-                "company": domain,
-                "role": role,
-                "email": email,
-                "source": "pattern",
-                "confidence": 0.4
-            }
-
-    # -------- FINAL FALLBACK --------
     return {
-        "name": input_role or "Team",
+        "name": "Business Team",
         "company": domain,
-        "role": "Fallback",
-        "email": f"info@{domain}",
-        "source": "fallback",
-        "confidence": 0.3
+        "role": "General Contact",
+        "email": generic_emails[0],
+        "source": "generic",
+        "confidence": 0.6
     }
-
 
 @app.post("/send-email/")
 def process_lead(lead: Lead):
@@ -224,11 +249,11 @@ def bulk_send(file: UploadFile = File(...)):
             company_context = scrape_website(company_url)
             
             message = generate_email(
-                name,
-                company,
-                role,
-                problem,
-                company_context
+                        name,
+                        company,
+                        role,
+                        problem,
+                        scraped["summary"]
             )
 
             # Send email
@@ -283,26 +308,21 @@ from backend.scraper import get_companies
 
 @app.post("/generate-leads/")
 def generate_leads(data: dict):
-    role = data.get("role")
     industry = data.get("industry")
     region = data.get("region")
 
     companies = get_companies(industry, region)
 
-    leads = []
+    # ONLY RETURN COMPANY NAMES
+    results = []
 
     for c in companies:
-        domain = c["website"]
-        
-        lead = generate_lead_with_fallback(
-                company=c["name"],
-                domain=domain,
-                input_role=role
-        )
+        results.append({
+            "company": c["name"]
+        })
 
-        leads.append(lead)
-
-        return {"leads": leads}
+    return {"companies": results}
+    
     
 @app.post("/generate-emails/")
 def generate_emails_api(data: dict):

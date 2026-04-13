@@ -205,7 +205,7 @@ elif page == "Leads Engine (MVP)":
             data = res.json()
     
             # Save leads
-            st.session_state.leads = data.get("leads", [])
+            st.session_state.leads = data.get("companies", [])
     
             st.success(f"✅ {len(st.session_state.leads)} leads generated")
 

@@ -44,20 +44,49 @@ def extract_emails_from_text(text):
 
 
 def search_email_online(company, role):
+    import requests
+    from bs4 import BeautifulSoup
+    import re
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     try:
-        query = f"{role} {company} email"
+        # -------- STEP 1: GOOGLE/BING SEARCH --------
+        query = f"{company} contact email"
 
         url = f"https://www.bing.com/search?q={query.replace(' ', '+')}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-
         res = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(res.text, "html.parser")
 
-        emails = extract_emails_from_text(res.text)
+        links = soup.select("li.b_algo a")
 
-        return emails[0] if emails else None
+        # -------- STEP 2: VISIT TOP LINKS --------
+        for link in links[:3]:
+
+            href = link.get("href")
+            if not href:
+                continue
+
+            try:
+                page = requests.get(href, headers=headers, timeout=5)
+                text = page.text
+
+                # -------- STEP 3: EXTRACT EMAILS --------
+                emails = re.findall(
+                    r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}',
+                    text
+                )
+
+                if emails:
+                    return emails[0]
+
+            except:
+                continue
+
+        return None
 
     except Exception as e:
-        print("Search email error:", e)
+        print("Email search error:", e)
         return None
 
 
@@ -85,3 +114,37 @@ def search_person_name(company, role):
     except Exception as e:
         print("Search name error:", e)
         return None
+        
+import socket
+
+def smtp_check(email):
+    try:
+        domain = email.split("@")[1]
+        records = dns.resolver.resolve(domain, 'MX')
+        mx_record = str(records[0].exchange)
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.settimeout(3)
+        server.connect((mx_record, 25))
+        server.close()
+
+        return True
+    except:
+        return False
+        
+def clean_company_from_domain(domain):
+    name = domain.lower()
+
+    # remove common TLDs
+    name = name.replace(".com", "")
+    name = name.replace(".in", "")
+    name = name.replace(".co", "")
+    name = name.replace(".net", "")
+    name = name.replace(".org", "")
+
+    # replace dots with space
+    name = name.replace(".", " ")
+
+    return name.title()
+    
+  
