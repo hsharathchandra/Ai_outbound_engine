@@ -31,7 +31,7 @@ ONLY output the 3 subject lines.
 """
 
     response = client.chat.completions.create(
-        model="meta/llama3-70b-instruct",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         max_tokens=100
