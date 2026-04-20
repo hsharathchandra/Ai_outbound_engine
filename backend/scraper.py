@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from backend.search_service import search_google
-from backend.company_filter import filter_companies
+from backend.company_extractor import extract_companies_from_text
 
 
 # -----------------------------
@@ -33,33 +33,27 @@ def get_page_text(url):
 # -----------------------------
 # MAIN FUNCTION
 # -----------------------------
-from backend.search_service import search_google
-from backend.scraper_utils import extract_companies_from_search
-
-
 def get_companies(industry, region):
-
     queries = [
-    f"list of {industry} companies in {region}",
-    f"{industry} companies in {region} wikipedia",
-    f"major companies in {region} {industry} sector",
-    f"{region} {industry} companies list",
-    f"{industry} firms in {region}"
+        f"{industry} companies in {region}",
+        f"list of {industry} companies in {region}",
+        f"{region} {industry} firms"
     ]
 
     all_results = []
 
     for q in queries:
         print("\n🔍 QUERY:", q)
-
         results = search_google(q)
-
-        print("🔍 RESULTS:", results)
-
         all_results.extend(results)
 
-    companies = extract_companies_from_search(all_results, industry, region)
+    # Pass industry + region so LLM extractor can filter accurately
+    companies = extract_companies_from_text(
+        all_results,
+        industry=industry,
+        region=region
+    )
 
     print("🏢 EXTRACTED:", companies)
 
-    return [{"name": c} for c in companies[:10]]
+    return [{"name": c} for c in companies]

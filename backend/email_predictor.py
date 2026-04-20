@@ -2,16 +2,6 @@ import dns.resolver
 import re
 
 # -----------------------------
-# COMMON EMAIL PATTERNS
-# -----------------------------
-COMMON_PATTERNS = [
-    "{first}@{domain}",
-    "{first}.{last}@{domain}",
-    "{first}{last}@{domain}",
-    "{f}{last}@{domain}"
-]
-
-# -----------------------------
 # CLEAN NAME
 # -----------------------------
 def clean_name(name):
@@ -19,44 +9,14 @@ def clean_name(name):
     name = re.sub(r'[^a-z\s]', '', name)
     parts = name.split()
 
-    if len(parts) == 0:
+    if len(parts) < 1:
         return None, None
 
-    first = parts[0]
-    last = parts[-1] if len(parts) > 1 else ""
-
-    return first, last
+    return parts[0], parts[-1] if len(parts) > 1 else ""
 
 
 # -----------------------------
-# GENERATE EMAIL PATTERNS
-# -----------------------------
-def generate_email_patterns(first, last, domain):
-    if not first or not domain:
-        return []
-
-    f = first[0] if first else ""
-
-    emails = [
-        f"{first}@{domain}",
-        f"{first}.{last}@{domain}" if last else "",
-        f"{first}{last}@{domain}" if last else "",
-        f"{f}{last}@{domain}" if last else ""
-    ]
-
-    return list(set([e for e in emails if e]))
-
-
-# -----------------------------
-# BASIC FORMAT VALIDATION
-# -----------------------------
-def is_valid_email_format(email):
-    pattern = r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
-    return re.match(pattern, email) is not None
-
-
-# -----------------------------
-# DOMAIN (MX) VALIDATION
+# DOMAIN VALIDATION (ONCE ONLY)
 # -----------------------------
 def validate_domain(domain):
     try:
@@ -67,48 +27,84 @@ def validate_domain(domain):
 
 
 # -----------------------------
-# FILTER VALID EMAILS
+# GENERATE EMAIL PATTERNS
 # -----------------------------
-def filter_valid_emails(emails):
-    valid = []
+def generate_email_patterns(first, last, domain):
+    if not first or not domain:
+        return []
 
-    for email in emails:
-        if not is_valid_email_format(email):
+    f = first[0]
+
+    return [
+        f"{first}.{last}@{domain}" if last else "",
+        f"{first}{last}@{domain}" if last else "",
+        f"{f}.{last}@{domain}" if last else "",
+        f"{f}{last}@{domain}" if last else "",
+        f"{first}@{domain}"
+    ]
+
+
+# -----------------------------
+# SCORING FUNCTION (CORE LOGIC)
+# -----------------------------
+def score_email(email, first, last, domain):
+    score = 0
+
+    # must match domain
+    if not email.endswith(domain):
+        return -999
+
+    score += 5
+
+    local = email.split("@")[0]
+
+    # best pattern
+    if f"{first}.{last}" == local:
+        score += 4
+
+    elif f"{first}{last}" == local:
+        score += 3
+
+    elif f"{first[0]}.{last}" == local:
+        score += 3
+
+    elif f"{first}" == local:
+        score += 2
+
+    # penalties
+    if any(x in email for x in ["info@", "contact@", "support@"]):
+        score -= 3
+
+    if any(x in email for x in ["test", "sample", "admin"]):
+        score -= 3
+
+    return score
+
+
+# -----------------------------
+# PICK BEST EMAIL (NEW)
+# -----------------------------
+def pick_best_email(patterns, first, last, domain):
+    best_email = None
+    best_score = -999
+
+    for e in patterns:
+        if not e:
             continue
 
-        domain = email.split("@")[-1]
+        score = score_email(e, first, last, domain)
 
-        if not validate_domain(domain):
-            continue
+        print(f"📊 {e} → {score}")
 
-        valid.append(email)
+        if score > best_score:
+            best_score = score
+            best_email = e
 
-    return valid
-
-
-# -----------------------------
-# PICK BEST EMAIL
-# -----------------------------
-def pick_best_email(emails):
-    """
-    Priority:
-    1. first.last@domain
-    2. first@domain
-    3. others
-    """
-
-    if not emails:
-        return None
-
-    for e in emails:
-        if "." in e.split("@")[0]:
-            return e
-
-    return emails[0]
+    return best_email
 
 
 # -----------------------------
-# MAIN HELPER FUNCTION
+# MAIN FUNCTION
 # -----------------------------
 def generate_best_email(name, domain):
     first, last = clean_name(name)
@@ -116,14 +112,42 @@ def generate_best_email(name, domain):
     if not first:
         return None
 
+    # validate domain once
     if not validate_domain(domain):
         print("❌ Invalid domain:", domain)
         return None
 
     patterns = generate_email_patterns(first, last, domain)
 
-    valid_emails = filter_valid_emails(patterns)
+    return pick_best_email(patterns, first, last, domain)
+    
+    
+def detect_pattern_from_email(email):
+    local = email.split("@")[0]
 
-    best = pick_best_email(valid_emails)
+    if "." in local:
+        return "first.last"
 
-    return best
+    if len(local) > 6:
+        return "firstlast"
+
+    return "first"
+    
+    
+def generate_from_pattern(name, domain, pattern):
+    parts = name.lower().split()
+    if len(parts) < 2:
+        return None
+
+    first, last = parts[0], parts[-1]
+
+    if pattern == "first.last":
+        return f"{first}.{last}@{domain}"
+
+    elif pattern == "firstlast":
+        return f"{first}{last}@{domain}"
+
+    elif pattern == "first":
+        return f"{first}@{domain}"
+
+    return None
