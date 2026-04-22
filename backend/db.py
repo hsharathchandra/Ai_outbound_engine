@@ -5,6 +5,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "leads.db")
 
 
+
+import psycopg2
+
+def get_connection():
+    return psycopg2.connect(
+        dbname="leads",
+        user="postgres",
+        password="password",
+        host="localhost"
+    )
+
+
 def get_connection():
     """Single connection factory. Always use this — never open conn directly."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)

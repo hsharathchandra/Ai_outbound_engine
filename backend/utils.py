@@ -200,3 +200,24 @@ def clean_company_from_domain(domain):
         name = name.replace(tld, "")
     name = name.replace(".", " ")
     return name.title()
+
+
+
+# ------------------------------------
+# Retries
+# ------------------------------------
+
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
+def safe_request(fn, retries=3, delay=1):
+    for i in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            logger.warning(f"Retry {i+1} failed: {e}")
+            time.sleep(delay)
+    logger.error("All retries failed")
+    return None

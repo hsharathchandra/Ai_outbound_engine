@@ -2,6 +2,7 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from backend.utils import clean_email
+from backend.config import MODEL_LARGE, MODEL_SMALL
 
 load_dotenv()
 
@@ -9,7 +10,6 @@ client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
     api_key=os.getenv("NVIDIA_API_KEY")
 )
-
 
 def generate_subjects(name, company, role):
     prompt = f"""
@@ -31,7 +31,7 @@ ONLY output the 3 subject lines.
 """
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=MODEL_SMALL,  # use this for subjects
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         max_tokens=100
@@ -99,10 +99,8 @@ and make sure you do not include something like Best,
 """
 
     response = client.chat.completions.create(
-        model="meta/llama3-70b-instruct",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
+        model=MODEL_SMALL,  # use this for email
+        messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         max_tokens=300
     )
@@ -111,21 +109,3 @@ and make sure you do not include something like Best,
     
     
 
-def clean_subjects(raw_text):
-    lines = raw_text.split("\n")
-
-    cleaned = []
-    for line in lines:
-        line = line.strip()
-
-        # remove unwanted lines
-        if not line:
-            continue
-        if "here" in line.lower():
-            continue
-        if "subject" in line.lower():
-            continue
-
-        cleaned.append(line)
-
-    return cleaned[:3]
