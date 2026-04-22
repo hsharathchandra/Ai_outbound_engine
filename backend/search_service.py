@@ -1,3 +1,4 @@
+import httpx
 import requests
 import os
 from dotenv import load_dotenv
@@ -23,7 +24,12 @@ def search_google(query, num_results=5):
         "Content-Type": "application/json"
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    response = safe_request(
+    lambda: requests.post(url, json=payload, headers=headers, timeout=5)
+    )
+    
+    if not response:
+        return []
 
     if response.status_code != 200:
         print("❌ Serper error:", response.text)
