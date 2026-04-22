@@ -65,6 +65,7 @@ _STRIP_WORDS = {
     "software", "systems", "consulting", "advisors", "advisory",
 }
 
+CACHE = {}
 
 def extract_domain(url):
     try:
@@ -137,6 +138,9 @@ def _verify_domain(domain, brand_token):
 
 
 def find_domain(company_name):
+    if company_name in DOMAIN_CACHE:
+        return DOMAIN_CACHE[company_name]
+
     query = f"{company_name} official website"
     results = search_google(query, num_results=8)
 

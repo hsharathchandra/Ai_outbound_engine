@@ -115,11 +115,19 @@ def get_stats():
 # ------------------------------------------------------------------
 # GENERATE LEADS
 # ------------------------------------------------------------------
+
+from pydantic import BaseModel
+
+class LeadRequest(BaseModel):
+    industry: str
+    region: str
+
+
 @app.post("/generate-leads/")
-def generate_leads(data: dict):
+def generate_leads(data: LeadRequest):
     try:
-        industry = data.get("industry")
-        region = data.get("region")
+        industry = data.industry
+        region = data.region
 
         companies_data = get_companies(industry, region)
         company_names = [c["name"] for c in companies_data]
